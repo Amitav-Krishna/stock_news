@@ -20,13 +20,13 @@ An app or website that shows the timeline of a stock price over long term (5 yea
 ```mermaid
 graph TD
     A[User chooses stock in the frontend] --> B[Get data from TimescaleDB]
-    B --> C{Is data missing?}
-    C --> D{No}
-	C --> E{Yes}
+    B --> C[Is data missing?]
+    C --> D[No]
+	C --> E[Yes]
 	D --> F[Send data to frontend to be displayed]
     E --> G[Use yfinance to get data about stock prices]
     E --> H[Scrape Yahoo News using Puppeteer for news about the stock]
     G --> I[Store data in TimescaleDB]
-    H --> I[Store data in TimescaleDB]
+    H --> I
     I --> F
 ```
