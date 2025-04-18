@@ -1,73 +1,74 @@
+import { Chart as ChartJS, registerables } from 'chart.js';
+import React from 'react';
 import { Line } from 'react-chartjs-2';
-import { Chart, registerables } from 'chart.js';
-import 'chartjs-adapter-luxon';
-import { DateTime } from 'luxon';
 
-Chart.register(...registerables);
+ChartJS.register(...registerables);
 
-interface StockData {
-  date: string;
-  close: number;
-}
-
-interface NewsEvent {
-  date: string;
-  title: string;
-}
-
-interface ChartWrapperProps {
-  stockData: StockData[];
-  newsEvents: NewsEvent[];
-}
-
-export default function ChartWrapper({ stockData, newsEvents }: ChartWrapperProps) {
-  // Process stock data into chart.js format
+export default function ChartWrapper() {
   const chartData = {
-    labels: stockData.map(item => DateTime.fromISO(item.date).toJSDate()),
+    labels: ['January', 'February', 'March', 'April', 'May'],
     datasets: [
       {
-        label: 'Stock Price',
-        data: stockData.map(item => item.close),
+        label: 'Example Dataset',
+        data: [10, 20, 15, 30, 25],
         borderColor: 'rgb(75, 192, 192)',
-        tension: 0.1
-      }
-    ]
+        tension: 0.1,
+      },
+    ],
   };
 
-  // Add annotations for news events
-  const plugins = [{
-    id: 'newsAnnotations',
-    afterDraw: (chart: Chart) => {
-      // Draw custom markers for news events
-    }
-  }];
+  interface TooltipCallbackContext {
+    label: string;
+    parsed: { y: number };
+  }
+
+  interface TooltipCallbacks {
+    label: (context: TooltipCallbackContext) => string;
+  }
+
+  interface TooltipOptions {
+    mode: 'nearest' | 'index' | 'dataset' | 'point' | 'x' | 'y';
+    intersect: boolean;
+    callbacks: TooltipCallbacks;
+  }
+
+  interface LegendOptions {
+    display: boolean;
+  }
+
+  interface PluginOptions {
+    legend: LegendOptions;
+    tooltip: TooltipOptions;
+  }
+
+  interface ChartOptionsType {
+    responsive: boolean;
+    plugins: PluginOptions;
+  }
+
+  const chartOptions: ChartOptionsType = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: true,
+      },
+      tooltip: {
+        mode: 'nearest', // Show tooltip for the nearest point
+        intersect: false, // Allow tooltips to appear even when not directly over a point
+        callbacks: {
+          label: (context: TooltipCallbackContext) => {
+            const xValue = context.label; // X value (label)
+            const yValue = context.parsed.y; // Y value (data point)
+            return `X: ${xValue}, Y: ${yValue}`;
+          },
+        },
+      },
+    },
+  };
 
   return (
-    <div className="chart-container">
-      <Line 
-        data={chartData} 
-        options={{
-          responsive: true,
-          scales: {
-            x: {
-              type: 'time',
-              time: {
-                unit: 'year'
-              }
-            }
-          },
-          plugins: {
-            tooltip: {
-              callbacks: {
-                label: (context) => {
-                  return `Price: $${context.parsed.y.toFixed(2)}`;
-                }
-              }
-            }
-          }
-        }}
-        plugins={plugins}
-      />
+    <div style={{ width: '600px', height: '400px' }}>
+      <Line data={chartData} options={chartOptions} />
     </div>
   );
 }
