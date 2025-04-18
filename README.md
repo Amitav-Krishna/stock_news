@@ -27,4 +27,5 @@ graph TD
     E --> G[Store data in TimescaleDB]
     F --> H[Store data in TimescaleDB]
     G --> D
-    F --> D```
+    F --> D
+	```
