@@ -36,8 +36,8 @@ graph TD
 - [X] Add functions to fetch stock data and news articles
 
 ### Database
-- [ ] Add functions to cache stock data and news articles in TimescaleDB
-- [ ] Add functions to check cached stock data and news articles before fetching them again
+- [X] Add functions to cache stock data and news articles in TimescaleDB
+- [X] Add functions to check cached stock data and news articles before fetching them again
 
 ### Frontend
 - [ ] Add communication between the frontend and backend

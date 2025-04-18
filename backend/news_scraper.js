@@ -1,9 +1,15 @@
 const puppeteer = require('puppeteer');
+const { getCachedNews, cacheNews } = require('./db');
 
 async function scrapeYahooNews(stockTicker) {
+    const cachedNews = await getCachedNews(stockTicker);
+    if (cachedNews) {
+        return cachedNews.articles; // Return cached news if available
+    }
+
     const url = `https://news.search.yahoo.com/search?p=${stockTicker}`;
     const browser = await puppeteer.launch({
-        args: ['--no-sandbox', '--disable-setuid-sandbox'], // Added options to bypass sandboxing issues
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     try {
         const page = await browser.newPage();
@@ -18,14 +24,13 @@ async function scrapeYahooNews(stockTicker) {
             }));
         });
 
+        await cacheNews(stockTicker, articles); // Cache the fetched news
         return articles;
     } catch (error) {
-        throw error; // Re-throw the error after cleanup
+        throw error;
     } finally {
-        await browser.close(); // Ensure the browser is closed
+        await browser.close();
     }
 }
 
-// Example usage:
-// scrapeYahooNews("AAPL").then(articles => console.log(articles));
 module.exports = scrapeYahooNews;
