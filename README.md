@@ -25,7 +25,7 @@ graph TD
     C -->|Yes| E[Use yfinance to get data about stock prices]
     C -->|Yes| F[Scrape Yahoo News using Puppeteer for news about the stock]
     E --> G[Store data in TimescaleDB]
-    F --> H[Store data in TimescaleDB]
+    F --> G[Store data in TimescaleDB]
     G --> D
     F --> D
 	```
