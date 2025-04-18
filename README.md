@@ -18,14 +18,13 @@ An app or website that shows the timeline of a stock price over long term (5 yea
 ## Project flow
 
 ```mermaid
-graph TD;\n
-    User chooses stock in the frontend --> Get data from TimescaleDB
-	Get data from TimescaleDB --> (if data is missing)
-	Get data from TimescaleDB --> Send data to frontend to be displayed
-	(if data is missing) --> Use yfinance to get data about stock prices
-	(if data is missing) --> Scrape Yahoo News using Puppeteer for news about the stock
-	Use yfinance to get data about stock prices --> Store data in TimescaleDB
-	Scrape Yahoo News using Puppeteer for news about the stock --> Store data in TimescaleDB
-	Scrape Yahoo News using Puppeteer for news about the stock --> Send data to frontend to be displayed
-	Use yfinance to get data about stock prices --> Send data to frontend to be displayed
-    ```
+graph TD
+    A[User chooses stock in the frontend] --> B[Get data from TimescaleDB]
+    B --> C{Is data missing?}
+    C -->|No| D[Send data to frontend to be displayed]
+    C -->|Yes| E[Use yfinance to get data about stock prices]
+    C -->|Yes| F[Scrape Yahoo News using Puppeteer for news about the stock]
+    E --> G[Store data in TimescaleDB]
+    F --> H[Store data in TimescaleDB]
+    G --> D
+    F --> D```
