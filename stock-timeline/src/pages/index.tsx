@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import ChartWrapper from '../components/ChartWrapper';
-import StockSelector from '../components/StockSelector';
-import TimeRangeSelector from '../components/TimeRangeSelector';
+import ChartWrapper from '@/components/ChartWrapper';
+import StockSelector from '@/components/StockSelector';
+import TimeRangeSelector from '@/components/TimeRangeSelector';
 
 export default function Home() {
   const [stockData, setStockData] = useState([]);
