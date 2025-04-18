@@ -9,9 +9,18 @@ An app or website that shows the timeline of a stock price over long term (5 yea
 		- Yahoo Finance API (yfinance)
 	- News
 		- Yahoo News
-4. **Database**
+3. **Database**
 	- PostgreSQL + TimescaleDB
-18. **Miscellaneous**
+4. **Miscellaneous**
 	- Luxon for date handling
 	- Axios for API calls 
 	- Puppeteer for news scraping
+## Project flow
+
+```mermaid
+graph TD;
+    A-->B;
+    A-->C;
+    B-->D;
+    C-->D;
+```
