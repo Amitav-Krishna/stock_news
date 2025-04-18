@@ -21,11 +21,12 @@ An app or website that shows the timeline of a stock price over long term (5 yea
 graph TD
     A[User chooses stock in the frontend] --> B[Get data from TimescaleDB]
     B --> C{Is data missing?}
-    C -->|No| D[Send data to frontend to be displayed]
-    C -->|Yes| E[Use yfinance to get data about stock prices]
-    C -->|Yes| F[Scrape Yahoo News using Puppeteer for news about the stock]
-    E --> G[Store data in TimescaleDB]
-    F --> G[Store data in TimescaleDB]
-    G --> D
-    F --> D
+    C --> D{No}
+	C --> E{Yes}
+	D --> F[Send data to frontend to be displayed]
+    E --> G[Use yfinance to get data about stock prices]
+    E --> H[Scrape Yahoo News using Puppeteer for news about the stock]
+    G --> I[Store data in TimescaleDB]
+    H --> I[Store data in TimescaleDB]
+    I --> F
 	```
