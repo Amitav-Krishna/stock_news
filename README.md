@@ -29,4 +29,4 @@ graph TD
     G --> I[Store data in TimescaleDB]
     H --> I[Store data in TimescaleDB]
     I --> F
-	```
+```
