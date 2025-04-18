@@ -18,7 +18,7 @@ An app or website that shows the timeline of a stock price over long term (5 yea
 ## Project flow
 
 ```mermaid
-graph TD;
+graph TD;\n
     User chooses stock in the frontend --> Get data from TimescaleDB
 	Get data from TimescaleDB --> (if data is missing)
 	Get data from TimescaleDB --> Send data to frontend to be displayed
