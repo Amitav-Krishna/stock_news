@@ -1,74 +1,84 @@
-import { Chart as ChartJS, registerables } from 'chart.js';
-import React from 'react';
-import { Line } from 'react-chartjs-2';
+import React, { useEffect, useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import axios from 'axios';
 
-ChartJS.register(...registerables);
+interface StockDataItem {
+  time: string;
+  price: number;
+}
 
 export default function ChartWrapper() {
-  const chartData = {
-    labels: ['January', 'February', 'March', 'April', 'May'],
-    datasets: [
-      {
-        label: 'Example Dataset',
-        data: [10, 20, 15, 30, 25],
-        borderColor: 'rgb(75, 192, 192)',
-        tension: 0.1,
-      },
-    ],
-  };
+  const [data, setData] = useState<StockDataItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  interface TooltipCallbackContext {
-    label: string;
-    parsed: { y: number };
-  }
+  useEffect(() => {
+    const fetchStockData = async () => {
+      try {
+        const response = await axios.get('http://localhost:3300/api/stock/AAPL');
+        setData(response.data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching stock data:', error);
+        setLoading(false);
+      }
+    };
 
-  interface TooltipCallbacks {
-    label: (context: TooltipCallbackContext) => string;
-  }
+    fetchStockData();
+  }, []);
 
-  interface TooltipOptions {
-    mode: 'nearest' | 'index' | 'dataset' | 'point' | 'x' | 'y';
-    intersect: boolean;
-    callbacks: TooltipCallbacks;
-  }
-
-  interface LegendOptions {
-    display: boolean;
-  }
-
-  interface PluginOptions {
-    legend: LegendOptions;
-    tooltip: TooltipOptions;
-  }
-
-  interface ChartOptionsType {
-    responsive: boolean;
-    plugins: PluginOptions;
-  }
-
-  const chartOptions: ChartOptionsType = {
-    responsive: true,
-    plugins: {
-      legend: {
-        display: true,
-      },
-      tooltip: {
-        mode: 'nearest', // Show tooltip for the nearest point
-        intersect: false, // Allow tooltips to appear even when not directly over a point
-        callbacks: {
-          label: (context: TooltipCallbackContext) => {
-            const xValue = context.label; // X value (label)
-            const yValue = context.parsed.y; // Y value (data point)
-            return `X: ${xValue}, Y: ${yValue}`;
-          },
-        },
-      },
-    },
+  // Custom tooltip to format display values
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white p-4 border border-gray-200 shadow-md rounded">
+          <p className="text-gray-700 mb-1">{`Time: ${label}`}</p>
+          <p className="text-teal-600 font-medium">{`Price: $${payload[0].value.toFixed(2)}`}</p>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
-    <div style={{ width: '600px', height: '400px' }}>
-      <Line data={chartData} options={chartOptions} />
+    <div className="w-full h-96">
+      {loading ? (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart
+            data={data}
+            margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+            <XAxis 
+              dataKey="time" 
+              tick={{ fontSize: 12 }}
+              tickLine={{ stroke: "#ccc" }}
+              axisLine={{ stroke: "#ccc" }}
+            />
+            <YAxis 
+              tick={{ fontSize: 12 }}
+              tickLine={{ stroke: "#ccc" }}
+              axisLine={{ stroke: "#ccc" }}
+              tickFormatter={(value) => `$${value}`}
+            />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend wrapperStyle={{ paddingTop: 10 }} />
+            <Line
+              type="monotone"
+              dataKey="price"
+              name="AAPL Stock Price"
+              stroke="#4db6ac"
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              activeDot={{ r: 6, stroke: "#00897b", strokeWidth: 1 }}
+              animationDuration={1500}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }

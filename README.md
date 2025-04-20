@@ -1,5 +1,5 @@
 ## Project definition
-An app or website that shows the timeline of a stock price over long term (5 years+) with major news articles of the stock pinned on the price chart. This way it is easy to see and learn how news affects stock prices past and present. (recommended by marnus.db@gmail.com)
+An app or website that shows the timeline of a stock price over long term (5 years+) with major news articles of the stock pinned on the price chart. This way it is easy to see and learn how news affects stock prices past and present. (Recommended by marnus.db@gmail.com)
 ## Project stack
 1. **Frontend (UI & Visualization)**
 - Next.js 
@@ -34,12 +34,13 @@ graph TD
 ## Todo list
 ### Features
 - [X] Add functions to fetch stock data and news articles
+- [X] Add stock graphing capabilities
 
 ### Database
 - [X] Add functions to cache stock data and news articles in TimescaleDB
 - [X] Add functions to check cached stock data and news articles before fetching them again
 
 ### Frontend
-- [ ] Add communication between the frontend and backend
-- [ ] Add stock graphing capablities
+- [X] Add communication between the frontend and backend
+- [ ] Add stock graphing capabilities
 - [ ] Add styling
