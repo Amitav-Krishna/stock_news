@@ -1,11 +1,15 @@
 import os
 import sys
 import subprocess
+import os
+import sys
+import subprocess
 import yfinance as yf
 import psycopg2
 from datetime import datetime
 import pandas as pd
 from dotenv import load_dotenv
+import matplotlib.pyplot as plt
 load_dotenv()
 print(os.getenv("DB_NAME"))
 print(os.getenv("DB_USER"))
@@ -28,6 +32,17 @@ def activate_virtualenv(venv_path='venv'):
         activate_script = os.path.join(venv_path, 'bin', 'activate')
         os.system(f'/bin/bash -c "source {activate_script}"')
 
+def plot_stock_data(hist, ticker):
+    """Create and display stock price chart"""
+    plt.figure(figsize=(12, 6))
+    plt.plot(hist.index, hist['Close'], label='Close Price')
+    plt.title(f'{ticker} Stock Price History')
+    plt.xlabel('Date')
+    plt.ylabel('Price')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
 def fetch_and_store_stock_data(ticker):
     """Fetch stock data and store in database"""
     try:
@@ -44,6 +59,9 @@ def fetch_and_store_stock_data(ticker):
             print(f"No data available for {ticker}")
             return False
 
+        # Plot the data
+        plot_stock_data(hist, ticker)
+
         conn = psycopg2.connect(
             dbname=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
@@ -57,7 +75,27 @@ def fetch_and_store_stock_data(ticker):
         for date, row in hist.iterrows():
             close_price = float(row['Close']) if not pd.isna(row['Close']) else None
             volume = int(row['Volume']) if not pd.isna(row['Volume']) else None
+        for date, row in hist.iterrows():
+            close_price = float(row['Close']) if not pd.isna(row['Close']) else None
+            volume = int(row['Volume']) if not pd.isna(row['Volume']) else None
 
+            if close_price is not None and volume is not None:
+                cursor.execute(
+                    """
+                    INSERT INTO stock_data (time, ticker, price, volume)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT DO NOTHING
+                    """,
+                    (date, ticker, close_price, volume)
+                )
+        conn.commit()
+        conn.close()
+        print(f"Successfully stored data for {ticker}")
+        return True
+
+    except Exception as e:
+        print(f"Error processing {ticker}: {str(e)}")
+        return False
             if close_price is not None and volume is not None:
                 cursor.execute(
                     """
@@ -85,13 +123,18 @@ if __name__ == "__main__":
         import yfinance
         import psycopg2
         import pandas
+        import matplotlib
     except ImportError as e:
         print(f"Missing dependency: {e}")
-        print("Please install requirements: pip install yfinance psycopg2-binary pandas")
+        print("Please install requirements: pip install yfinance psycopg2-binary pandas matplotlib")
         sys.exit(1)
     
     if len(sys.argv) != 2:
         print("Usage: python yfinance_fetcher.py <ticker>")
+        sys.exit(1)
+    
+    success = fetch_and_store_stock_data(sys.argv[1])
+    sys.exit(0 if success else 1)
         sys.exit(1)
     
     success = fetch_and_store_stock_data(sys.argv[1])
