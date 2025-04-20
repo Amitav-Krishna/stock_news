@@ -1,6 +1,4 @@
 const express = require('express');
-const { getHistoricalStockData } = require('../db');
-const { exec } = require('child_process');
 const router = express.Router();
 
 router.get('/:ticker', async (req, res) => {
