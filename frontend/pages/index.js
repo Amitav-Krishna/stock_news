@@ -11,22 +11,36 @@ export default function Home() {
     const [chartData, setChartData] = useState(null);
     const [articles, setArticles] = useState([]); // State for storing articles
 
-    const fetchStockData = async () => { // Define fetchStockData
+    const fetchStockData = async () => {
         try {
+            console.log('Fetching data for ticker:', ticker);
             const response = await axios.get(`/api/stock/${ticker}`);
-            const data = response.data;
+            console.log('Raw API response:', response);
+            const responseData = response.data;
+            console.log('Response data:', responseData);
 
-            const validatedData = data.map(item => ({
-                ...item,
-                price: Number(item.price) || 0,
-            }));
+            if (!responseData.data || !Array.isArray(responseData.data)) {
+                console.error('Expected data array in response but got:', responseData);
+                return;
+            }
 
-            setChartData(validatedData);
+            const validatedData = responseData.data.map(item => {
+                console.log('Processing item:', item);
+                return {
+                    ...item,
+                    price: Number(item.price) || 0,
+                };
+            });
+
+            // Sort data chronologically
+            const sortedData = validatedData.sort((a, b) => new Date(a.time) - new Date(b.time));
+            console.log('Sorted data:', sortedData);
+            setChartData(sortedData);
 
             const significantChanges = [];
-            for (let i = 1; i < validatedData.length; i++) {
-                const prev = validatedData[i - 1];
-                const curr = validatedData[i];
+            for (let i = 1; i < sortedData.length; i++) {
+                const prev = sortedData[i - 1];
+                const curr = sortedData[i];
                 const priceChange = Math.abs(curr.price - prev.price);
                 if (priceChange / prev.price > 0.05) {
                     significantChanges.push(curr.time);
@@ -51,7 +65,12 @@ export default function Home() {
 
             setArticles(articlesResponse.data.articles);
         } catch (error) {
-            console.error('Error:', error.response?.data?.message || error.message);
+            console.error('Detailed error:', {
+                message: error.message,
+                response: error.response,
+                data: error.response?.data,
+                status: error.response?.status
+            });
         }
     };
 
