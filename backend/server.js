@@ -1,8 +1,8 @@
-// backend/server.js
 const express = require('express');
 const cors = require('cors');
-const stockRoutes = require('./routes/stock');
-const newsRoutes = require('./routes/news');
+const stockRoutes = require('./routes/stock').default || require('./routes/stock');
+const newsRoutes = require('./api/news').default || require('./api/news'); // Updated path
+require('dotenv').config({ path: './.env' }); // Explicitly load the backend .env file
 const app = express();
 
 app.use(cors()); // Enable CORS for all routes
