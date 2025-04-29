@@ -13,32 +13,47 @@ export default function Home() {
     const [selectedPoint, setSelectedPoint] = useState(null);
     const chartRef = React.useRef(null);
     const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
+    const [error, setError] = useState(null);
 
-    React.useEffect(() => {
-        const updateDimensions = () => {
-            const containerWidth = Math.min(window.innerWidth - 40, 1200); // max width of 1200px, 20px padding on each side
-            const containerHeight = Math.min(window.innerHeight * 0.6, 600); // 60% of viewport height, max 600px
-            setDimensions({ width: containerWidth, height: containerHeight });
-        };
-
-        // Set initial dimensions
-        updateDimensions();
-
-        // Add event listener
-        window.addEventListener('resize', updateDimensions);
-
-        // Cleanup
-        return () => window.removeEventListener('resize', updateDimensions);
+    // Prevent unnecessary re-renders of dimensions
+    const debouncedUpdateDimensions = React.useCallback(() => {
+        const containerWidth = Math.min(window.innerWidth - 40, 1200);
+        const containerHeight = Math.min(window.innerHeight * 0.6, 600);
+        setDimensions({ width: containerWidth, height: containerHeight });
     }, []);
 
-    const scrollToDataPoint = (date) => {
+    React.useEffect(() => {
+        debouncedUpdateDimensions();
+        
+        let resizeTimer;
+        const handleResize = () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(debouncedUpdateDimensions, 100);
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(resizeTimer);
+        };
+    }, [debouncedUpdateDimensions]);
+
+    // Cleanup highlight timeout
+    React.useEffect(() => {
+        let highlightTimer;
+        if (selectedPoint) {
+            highlightTimer = setTimeout(() => setSelectedPoint(null), 2000);
+        }
+        return () => clearTimeout(highlightTimer);
+    }, [selectedPoint]);
+
+    // Move scrollToDataPoint outside render
+    const scrollToDataPoint = React.useCallback((date) => {
         if (chartRef.current) {
             chartRef.current.scrollIntoView({ behavior: 'smooth' });
             setSelectedPoint(date);
-            // Reset the highlight after 2 seconds
-            setTimeout(() => setSelectedPoint(null), 2000);
         }
-    };
+    }, []);
 
     const getChartDataForDate = (articleDate) => {
         if (!chartData) return null;
@@ -69,80 +84,48 @@ export default function Home() {
     };
 
     const fetchStockData = async () => {
-        try {
-            console.log('Fetching data for ticker:', ticker);
-            const response = await axios.get(`/api/stock/${ticker}`);
-            console.log('Raw API response:', response);
-            const responseData = response.data;
-            console.log('Response data:', responseData);
+      try {
+        // Fetch stock data
+        const response = await axios.get(`/api/stock/${ticker}`);
+        const responseData = response.data;
 
-            if (!responseData.data || !Array.isArray(responseData.data)) {
-                console.error('Expected data array in response but got:', responseData);
-                return;
-            }
-
-            const validatedData = responseData.data.map(item => {
-                console.log('Processing item:', item);
-                return {
-                    ...item,
-                    price: Number(item.price) || 0,
-                };
-            });
-
-            // Sort data chronologically
-            const sortedData = validatedData.sort((a, b) => new Date(a.time) - new Date(b.time));
-            console.log('Sorted data:', sortedData);
-            setChartData(sortedData);
-
-            const significantChanges = [];
-            for (let i = 1; i < sortedData.length; i++) {
-                const prev = sortedData[i - 1];
-                const curr = sortedData[i];
-                const priceChange = Math.abs(curr.price - prev.price);
-                if (priceChange / prev.price > 0.05) {
-                    significantChanges.push(curr.time);
-                }
-            }
-
-            // Critical fixes for NewsAPI implementation
-            if (!significantChanges.length) {
-                console.warn('No significant price changes detected');
-                return;
-            }
-
-            const formattedDate = format(new Date(significantChanges[0]), 'yyyy-MM-dd');
-            const today = format(new Date(), 'yyyy-MM-dd');
-            
-            // Fetch related news articles
-            console.log('Fetching news articles...');
-            const newsResponse = await axios.get('/api/news', {
-                params: { q: ticker }
-            });
-
-            console.log('News response:', newsResponse.data);
-
-            const processedArticles = newsResponse.data || [];
-            setArticles(processedArticles);
-            
-            // Enhance chartData with article information
-            const enhancedData = sortedData.map(dataPoint => {
-                const hasArticle = processedArticles.some(article => 
-                    new Date(article.publishedAt).toDateString() === new Date(dataPoint.time).toDateString()
-                );
-                return {
-                    ...dataPoint,
-                    hasArticle,
-                    pointStyle: hasArticle ? 'circle' : 'none',
-                    pointRadius: hasArticle ? 4 : 0,
-                    pointBackgroundColor: hasArticle ? 'red' : 'transparent',
-                    pointBorderColor: hasArticle ? 'red' : 'transparent',
-                };
-            });
-            setChartData(enhancedData);
-            
-        } catch (error) {
-            console.error('Error:', error);
+        if (!responseData.data || !Array.isArray(responseData.data)) {
+          console.error('[DEBUG] Invalid data format:', responseData);
+          return;
         }
+
+        // Fetch news before processing chart data
+        const newsResponse = await axios.get('/api/news', {
+          params: { q: ticker }
+        });
+        
+        const articles = newsResponse.data || [];
+        setArticles(articles);
+
+        // Process and enhance chart data with article information
+        const processedData = responseData.data.map(item => {
+          const itemDate = new Date(item.time).toDateString();
+          const hasArticle = articles.some(article => 
+            new Date(article.publishedAt).toDateString() === itemDate
+          );
+          
+          return {
+            ...item,
+            price: Number(item.price) || 0,
+            hasArticle
+          };
+        });
+
+        const sortedData = processedData.sort((a, b) => new Date(a.time) - new Date(b.time));
+        console.log('[DEBUG] Processed chart data:', sortedData);
+        setChartData(sortedData);
+        setError(null);
+
+      } catch (err) {
+        console.error('[DEBUG] Error:', err);
+        setError(err);
+        setArticles([]);
+      }
     };
 
     const CustomTooltip = ({ active, payload, label, selectedPoint }) => {
@@ -176,20 +159,27 @@ export default function Home() {
 
     return (
         <div className="min-h-screen bg-gray-50">
+            {console.log('[DEBUG] Rendering Home component')}
             <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold text-gray-900 mb-8">Stock Price Analysis</h1>
-                
                 <div className="bg-white rounded-lg shadow p-6 mb-8">
                     <div className="flex gap-4 mb-6">
                         <input
                             type="text"
                             placeholder="Enter stock ticker (e.g., AAPL)"
                             value={ticker}
-                            onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                            onChange={(e) => {
+                              const newTicker = e.target.value.toUpperCase();
+                              console.log('[DEBUG] Ticker input changed:', newTicker);
+                              setTicker(newTicker);
+                            }}
                             className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-primary"
                         />
                         <button 
-                            onClick={fetchStockData}
+                            onClick={() => {
+                              console.log('[DEBUG] Fetch Data button clicked');
+                              fetchStockData();
+                            }}
                             className="px-6 py-2 bg-primary text-white rounded-md hover:bg-primary-hover transition-colors"
                         >
                             Fetch Data
@@ -198,6 +188,7 @@ export default function Home() {
 
                     {chartData && (
                         <div ref={chartRef} className="w-full h-[600px] mb-8">
+                            {console.log('[DEBUG] Rendering LineChart with chartData:', chartData)}
                             <LineChart width={dimensions.width} height={dimensions.height} data={chartData}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis 
@@ -221,20 +212,18 @@ export default function Home() {
                                         const { payload } = props;
                                         const isSelected = selectedPoint && 
                                             new Date(selectedPoint).toDateString() === new Date(payload.time).toDateString();
-                                        if (payload.hasArticle || isSelected) {
-                                            return (
-                                                <circle 
-                                                    {...props} 
-                                                    r={isSelected ? 12 : 8} 
-                                                    fill={isSelected ? "#ff9900" : "red"}
-                                                    stroke={isSelected ? "#ff9900" : "red"}
-                                                />
-                                            );
-                                        }
-                                        return null;
+                                        
+                                        return (
+                                            <circle 
+                                                {...props} 
+                                                r={payload.hasArticle ? 6 : 3}
+                                                fill={payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)"}
+                                                stroke={payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)"}
+                                            />
+                                        );
                                     }}
                                     activeDot={{
-                                        r: 12,
+                                        r: 8,
                                         strokeWidth: 2,
                                         fill: "#ff9900",
                                         stroke: "#ff9900"
@@ -244,48 +233,6 @@ export default function Home() {
                         </div>
                     )}
                 </div>
-
-                {articles.length > 0 && (
-                    <div className="bg-white rounded-lg shadow p-6">
-                        <h2 className="text-2xl font-semibold text-gray-900 mb-6">Related Articles</h2>
-                        <div className="space-y-6">
-                            {articles.map((article, index) => (
-                                <div key={index} className="border-b border-gray-200 last:border-0 pb-6">
-                                    <h3 className="text-lg font-medium mb-2">
-                                        {article.link ? (
-                                            <a 
-                                                href={article.link} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="text-primary hover:underline"
-                                            >
-                                                {article.title}
-                                            </a>
-                                        ) : (
-                                            <span>{article.title}</span>
-                                        )}
-                                    </h3>
-                                    <p className="text-sm text-gray-600 mb-2">
-                                        <strong>Source:</strong> {article.source}
-                                    </p>
-                                    <p className="relative text-sm text-gray-600 mb-2">
-                                        <strong>Published:</strong>{' '}
-                                        <span 
-                                            onClick={() => {
-                                                scrollToDataPoint(article.publishedAt);
-                                                setSelectedDate(selectedDate === article.publishedAt ? null : article.publishedAt);
-                                            }}
-                                            className="cursor-pointer text-primary hover:underline"
-                                        >
-                                            {article.publishedAt}
-                                        </span>
-                                    </p>
-                                    <p className="text-gray-700">{article.snippet}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );

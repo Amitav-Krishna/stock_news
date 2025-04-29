@@ -13,12 +13,14 @@ export default function ChartWrapper() {
 
   useEffect(() => {
     const fetchStockData = async () => {
+      console.log('[DEBUG] Fetching stock data...');
       try {
         const response = await axios.get('http://localhost:3300/api/stock/AAPL');
+        console.log('[DEBUG] Stock data fetched successfully:', response.data);
         setData(response.data);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching stock data:', error);
+        console.error('[DEBUG] Error fetching stock data:', error);
         setLoading(false);
       }
     };
@@ -42,11 +44,16 @@ export default function ChartWrapper() {
   return (
     <div className="w-full h-96">
       {loading ? (
-        <div className="flex items-center justify-center h-full">
-          <p className="text-gray-500">Loading...</p>
-        </div>
+        <>
+          {console.log('[DEBUG] Loading state active')}
+          <div className="flex items-center justify-center h-full">
+            <p className="text-gray-500">Loading...</p>
+          </div>
+        </>
       ) : (
-        <ResponsiveContainer width="100%" height="100%">
+        <>
+          {console.log('[DEBUG] Rendering LineChart with data:', data)}
+          <ResponsiveContainer width="100%" height="100%">
           <LineChart
             data={data}
             margin={{ top: 20, right: 30, left: 20, bottom: 10 }}
@@ -72,12 +79,13 @@ export default function ChartWrapper() {
               name="AAPL Stock Price"
               stroke="#4db6ac"
               strokeWidth={2}
-              dot={{ r: 3 }}
+              dot={{ r: 3, fill: "#4db6ac" }}
               activeDot={{ r: 6, stroke: "#00897b", strokeWidth: 1 }}
               animationDuration={1500}
             />
           </LineChart>
-        </ResponsiveContainer>
+          </ResponsiveContainer>
+        </>
       )}
     </div>
   );
