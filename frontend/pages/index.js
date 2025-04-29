@@ -213,12 +213,25 @@ export default function Home() {
                                         const isSelected = selectedPoint && 
                                             new Date(selectedPoint).toDateString() === new Date(payload.time).toDateString();
                                         
+                                        const handleClick = () => {
+                                            if (payload.hasArticle) {
+                                                const article = articles.find(a => 
+                                                    new Date(a.publishedAt).toDateString() === new Date(payload.time).toDateString()
+                                                );
+                                                if (article?.link) {
+                                                    window.open(article.link, '_blank', 'noopener,noreferrer');
+                                                }
+                                            }
+                                        };
+                                        
                                         return (
                                             <circle 
                                                 {...props} 
                                                 r={payload.hasArticle ? 6 : 3}
                                                 fill={payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)"}
                                                 stroke={payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)"}
+                                                style={{ cursor: payload.hasArticle ? 'pointer' : 'default' }}
+                                                onClick={handleClick}
                                             />
                                         );
                                     }}
