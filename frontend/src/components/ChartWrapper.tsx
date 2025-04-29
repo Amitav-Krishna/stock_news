@@ -76,11 +76,10 @@ export default function ChartWrapper() {
             <Line
               type="monotone"
               dataKey="price"
-              name="AAPL Stock Price"
+              name="Graph"
               stroke="#4db6ac"
               strokeWidth={2}
               dot={{ r: 3, fill: "#4db6ac" }}
-              activeDot={{ r: 6, stroke: "#00897b", strokeWidth: 1 }}
               animationDuration={1500}
             />
           </LineChart>

@@ -14,8 +14,8 @@ export default function Home() {
     const chartRef = React.useRef(null);
     const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
     const [error, setError] = useState(null);
+    const [loadingArticles, setLoadingArticles] = useState(false);
 
-    // Prevent unnecessary re-renders of dimensions
     const debouncedUpdateDimensions = React.useCallback(() => {
         const containerWidth = Math.min(window.innerWidth - 40, 1200);
         const containerHeight = Math.min(window.innerHeight * 0.6, 600);
@@ -38,7 +38,6 @@ export default function Home() {
         };
     }, [debouncedUpdateDimensions]);
 
-    // Cleanup highlight timeout
     React.useEffect(() => {
         let highlightTimer;
         if (selectedPoint) {
@@ -47,7 +46,6 @@ export default function Home() {
         return () => clearTimeout(highlightTimer);
     }, [selectedPoint]);
 
-    // Move scrollToDataPoint outside render
     const scrollToDataPoint = React.useCallback((date) => {
         if (chartRef.current) {
             chartRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -85,16 +83,16 @@ export default function Home() {
 
     const fetchStockData = async () => {
       try {
-        // Fetch stock data
+        setLoadingArticles(true);
         const response = await axios.get(`/api/stock/${ticker}`);
         const responseData = response.data;
 
         if (!responseData.data || !Array.isArray(responseData.data)) {
           console.error('[DEBUG] Invalid data format:', responseData);
+          setLoadingArticles(false);
           return;
         }
 
-        // Fetch news before processing chart data
         const newsResponse = await axios.get('/api/news', {
           params: { q: ticker }
         });
@@ -102,7 +100,6 @@ export default function Home() {
         const articles = newsResponse.data || [];
         setArticles(articles);
 
-        // Process and enhance chart data with article information
         const processedData = responseData.data.map(item => {
           const itemDate = new Date(item.time).toDateString();
           const hasArticle = articles.some(article => 
@@ -120,11 +117,12 @@ export default function Home() {
         console.log('[DEBUG] Processed chart data:', sortedData);
         setChartData(sortedData);
         setError(null);
-
       } catch (err) {
         console.error('[DEBUG] Error:', err);
         setError(err);
         setArticles([]);
+      } finally {
+        setLoadingArticles(false);
       }
     };
 
@@ -186,68 +184,125 @@ export default function Home() {
                         </button>
                     </div>
 
-                    {chartData && (
-                        <div ref={chartRef} className="w-full h-[600px] mb-8">
-                            {console.log('[DEBUG] Rendering LineChart with chartData:', chartData)}
-                            <LineChart width={dimensions.width} height={dimensions.height} data={chartData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis 
-                                    dataKey="time" 
-                                    tickFormatter={(tick) => format(new Date(tick), 'MM/dd')}
-                                />
-                                <YAxis 
-                                    domain={[0, dataMax => Math.ceil(dataMax) + 10]}
-                                    tickFormatter={tick => `$${Math.round(tick)}`}
-                                />
-                                <Tooltip 
-                                    content={<CustomTooltip selectedPoint={selectedPoint} />}
-                                    cursor={{ strokeDasharray: '3 3' }}
-                                    isAnimationActive={false}
-                                />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="price" 
-                                    stroke="rgba(75, 192, 192, 1)"
-                                    dot={(props) => {
-                                        const { payload } = props;
-                                        const isSelected = selectedPoint && 
-                                            new Date(selectedPoint).toDateString() === new Date(payload.time).toDateString();
-                                        
-                                        const handleClick = () => {
-                                            if (payload.hasArticle) {
-                                                const article = articles.find(a => 
-                                                    new Date(a.publishedAt).toDateString() === new Date(payload.time).toDateString()
-                                                );
-                                                if (article?.link) {
-                                                    window.open(article.link, '_blank', 'noopener,noreferrer');
+                    {loadingArticles ? (
+                      <div className="text-center text-gray-500">Fetching articles...</div>
+                    ) : (
+                      chartData && (
+                          <>
+                            <div ref={chartRef} className="w-full h-[600px] mb-8">
+                                {console.log('[DEBUG] Rendering LineChart with chartData:', chartData)}
+                                <LineChart width={dimensions.width} height={dimensions.height} data={chartData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis 
+                                        dataKey="time" 
+                                        tickFormatter={(tick) => format(new Date(tick), 'MM/dd')}
+                                    />
+                                    <YAxis 
+                                        domain={[0, dataMax => Math.ceil(dataMax) + 10]}
+                                        tickFormatter={tick => `$${Math.round(tick)}`}
+                                    />
+                                    <Tooltip 
+                                        content={<CustomTooltip selectedPoint={selectedPoint} />}
+                                        cursor={{ strokeDasharray: '3 3' }}
+                                        isAnimationActive={false}
+                                    />
+                                    <Line 
+                                        type="monotone" 
+                                        dataKey="price" 
+                                        stroke="rgba(75, 192, 192, 1)"
+                                        dot={(props) => {
+                                            const { payload } = props;
+                                            const isSelected = selectedPoint && 
+                                                new Date(selectedPoint).toDateString() === new Date(payload.time).toDateString();
+                                            
+                                            const handleClick = () => {
+                                                if (payload.hasArticle) {
+                                                    const article = articles.find(a => 
+                                                        new Date(a.publishedAt).toDateString() === new Date(payload.time).toDateString()
+                                                    );
+                                                    if (article?.link) {
+                                                        window.open(article.link, '_blank', 'noopener,noreferrer');
+                                                    }
                                                 }
-                                            }
-                                        };
-                                        
-                                        return (
-                                            <circle 
-                                                {...props} 
-                                                r={payload.hasArticle ? 6 : 3}
-                                                fill={payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)"}
-                                                stroke={payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)"}
-                                                style={{ cursor: payload.hasArticle ? 'pointer' : 'default' }}
-                                                onClick={handleClick}
-                                            />
-                                        );
-                                    }}
-                                    activeDot={{
-                                        r: 8,
-                                        strokeWidth: 2,
-                                        fill: "#ff9900",
-                                        stroke: "#ff9900"
-                                    }}
-                                />
-                            </LineChart>
-                        </div>
+                                            };
+                                            
+                                            return (
+                                                <circle 
+                                                    {...props} 
+                                                    r={isSelected ? 8 : (payload.hasArticle ? 6 : 3)}
+                                                    fill={isSelected ? "#ff9900" : (payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)")}
+                                                    stroke={isSelected ? "#ff9900" : (payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)")}
+                                                    strokeWidth={isSelected ? 2 : 1}
+                                                    onClick={handleClick}
+                                                    style={{ transition: 'all 0.3s ease' }} // Add smooth transition
+                                                />
+                                            );
+                                        }}
+                                        activeDot={{
+                                            r: 8,
+                                            strokeWidth: 2,
+                                            fill: "#ff9900",
+                                            stroke: "#ff9900"
+                                        }}
+                                    />
+                                    </LineChart>
+                            </div>
+
+                            {/* Articles List Section */}
+                            {articles.length > 0 && (
+                                <div className="mt-12">
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Related Articles</h2>
+                                    <div className="space-y-4">
+                                        {articles.map((article, index) => {
+                                            const dataPoint = getChartDataForDate(article.publishedAt);
+                                            return (
+                                                <div 
+                                                    key={index} 
+                                                    className="border-b border-gray-200 pb-4 last:border-b-0"
+                                                    onClick={() => scrollToDataPoint(article.publishedAt)}
+                                                >
+                                                    <div className="flex items-start">
+                                                        <div className="flex-1">
+                                                            <h3 className="text-lg font-medium text-gray-900 mb-1">
+                                                                <a 
+                                                                    href={article.link} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="hover:text-primary"
+                                                                >
+                                                                    {article.title}
+                                                                </a>
+                                                            </h3>
+                                                            <p className="text-sm text-gray-500 mb-2">
+                                                                {format(new Date(article.publishedAt), 'MMMM d, yyyy - h:mm a')}
+                                                                {dataPoint && (
+                                                                    <span className="ml-2 text-gray-600">
+                                                                        (Price: ${dataPoint.price.toFixed(2)})
+                                                                    </span>
+                                                                )}
+                                                            </p>
+                                                            <p className="text-gray-700">{article.description}</p>
+                                                        </div>
+                                                        {dataPoint && (
+                                                            <div 
+                                                                className="w-3 h-3 rounded-full ml-4 mt-1.5"
+                                                                style={{ 
+                                                                    backgroundColor: dataPoint.hasArticle ? "red" : "rgba(75, 192, 192, 1)"
+                                                                }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                          </>
+                      )
                     )}
                 </div>
             </div>
         </div>
     );
 }
-
