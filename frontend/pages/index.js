@@ -16,8 +16,8 @@ export default function Home() {
     const chartRef = React.useRef(null);
     const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
     const [error, setError] = useState(null);
-    const [loadingArticles, setLoadingArticles] = useState(false);
 
+    // Prevent unnecessary re-renders of dimensions
     const debouncedUpdateDimensions = React.useCallback(() => {
         const containerWidth = Math.min(window.innerWidth - 40, 1200);
         const containerHeight = Math.min(window.innerHeight * 0.6, 600);
@@ -40,6 +40,7 @@ export default function Home() {
         };
     }, [debouncedUpdateDimensions]);
 
+    // Cleanup highlight timeout
     React.useEffect(() => {
         let highlightTimer;
         if (selectedPoint) {
@@ -62,87 +63,67 @@ export default function Home() {
         );
     };
 
-    const ArticleTooltip = ({ date }) => {
-        const dataPoint = getChartDataForDate(date);
-        if (!dataPoint) return null;
+    const fetchStockData = async () => {
+      try {
+        // Reset states
+        setError(null);
+        setApiLimitReached(false);
+        setArticles([]);
+        setCachedStocks([]);
 
-        return (
-            <div style={{ 
-                position: 'absolute',
-                backgroundColor: '#fff',
-                border: '1px solid #ccc',
-                padding: '10px',
-                borderRadius: '4px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                zIndex: 1000,
-                marginLeft: '20px'
-            }}>
-                <p><strong>Date:</strong> {format(new Date(date), 'MM/dd/yyyy')}</p>
-                <p><strong>Price:</strong> ${dataPoint.price.toFixed(2)}</p>
-            </div>
+        // Fetch stock data
+        const response = await axios.get(`/api/stock/${ticker}`);
+        const responseData = response.data;
+
+        if (!responseData.data || !Array.isArray(responseData.data)) {
+          console.error('[DEBUG] Invalid data format:', responseData);
+          return;
+        }
+
+        let newsArticles = [];
+        try {
+          const newsResponse = await axios.get('/api/news', {
+            params: { q: ticker }
+          });
+          newsArticles = newsResponse.data || [];
+          setArticles(newsArticles);
+        } catch (newsError) {
+          if (newsError.response?.status === 429) {
+            setApiLimitReached(true);
+            setCachedStocks(newsError.response.data?.cachedStocks || []);
+            setError(newsError.response.data?.message || 'API limit reached');
+          } else {
+            throw newsError;
+          }
+        }
+
+        // Create a Set of dates that have articles for quick lookup
+        const articleDates = new Set(
+          newsArticles.map(article => 
+            new Date(article.publishedAt).toDateString()
+          )
         );
+
+        // Process and enhance chart data with article information
+        const processedData = responseData.data.map(item => {
+          const itemDate = new Date(item.time).toDateString();
+          
+          return {
+            ...item,
+            price: Number(item.price) || 0,
+            hasArticle: articleDates.has(itemDate) && !apiLimitReached
+          };
+        });
+
+        const sortedData = processedData.sort((a, b) => new Date(a.time) - new Date(b.time));
+        setChartData(sortedData);
+
+      } catch (err) {
+        console.error('[DEBUG] Error:', err);
+        setError(err.response?.data?.message || 'Failed to fetch data');
+      }
     };
 
-    const fetchStockData = async () => {
-  try {
-    // Reset states
-    setError(null);
-    setApiLimitReached(false);
-    setArticles([]);
-    setCachedStocks([]);
-
-    // Fetch stock data
-    const response = await axios.get(`/api/stock/${ticker}`);
-    const responseData = response.data;
-
-    if (!responseData.data || !Array.isArray(responseData.data)) {
-      console.error('[DEBUG] Invalid data format:', responseData);
-      return;
-    }
-
-    let newsArticles = [];
-    try {
-      const newsResponse = await axios.get('/api/news', {
-        params: { q: ticker }
-      });
-      newsArticles = newsResponse.data || [];
-      setArticles(newsArticles);
-    } catch (newsError) {
-      if (newsError.response?.status === 429) {
-        setApiLimitReached(true);
-        setCachedStocks(newsError.response.data?.cachedStocks || []);
-        setError(newsError.response.data?.message || 'API limit reached');
-      } else {
-        throw newsError;
-      }
-    }
-
-    // Create a Set of dates that have articles for quick lookup
-    const articleDates = new Set(
-      newsArticles.map(article => 
-        new Date(article.publishedAt).toDateString()
-      )
-    );
-
-    // Process and enhance chart data with article information
-    const processedData = responseData.data.map(item => {
-      const itemDate = new Date(item.time).toDateString();
-      
-      return {
-        ...item,
-        price: Number(item.price) || 0,
-        hasArticle: articleDates.has(itemDate) && !apiLimitReached
-      };
-    });
-
-    const sortedData = processedData.sort((a, b) => new Date(a.time) - new Date(b.time));
-    setChartData(sortedData);
-
-  } catch (err) {
-    console.error('[DEBUG] Error:', err);
-    setError(err.response?.data?.message || 'Failed to fetch data');
-  }
-};
     const CustomTooltip = ({ active, payload, label, selectedPoint }) => {
         if ((!active && !selectedPoint) || !payload || !payload.length) return null;
         
@@ -170,6 +151,12 @@ export default function Home() {
                 )}
             </div>
         );
+    };
+
+    // Function to handle article date click
+    const handleArticleDateClick = (articleDate) => {
+        scrollToDataPoint(articleDate);
+        setSelectedPoint(articleDate);
     };
 
     return (
@@ -226,12 +213,13 @@ export default function Home() {
                                     dataKey="price" 
                                     stroke="rgba(75, 192, 192, 1)"
                                     dot={(props) => {
-                                        const { payload } = props;
+                                        const { cx, cy, payload } = props;
                                         const isSelected = selectedPoint && 
                                             new Date(selectedPoint).toDateString() === new Date(payload.time).toDateString();
                                         
+                                        const hasArticle = payload.hasArticle;
                                         const handleClick = () => {
-                                            if (!apiLimitReached && payload.hasArticle) {
+                                            if (hasArticle) {
                                                 const article = articles.find(a => 
                                                     new Date(a.publishedAt).toDateString() === new Date(payload.time).toDateString()
                                                 );
@@ -243,11 +231,12 @@ export default function Home() {
                                         
                                         return (
                                             <circle 
-                                                {...props} 
-                                                r={!apiLimitReached && payload.hasArticle ? 6 : 3}
-                                                fill={!apiLimitReached && payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)"}
-                                                stroke={!apiLimitReached && payload.hasArticle ? "red" : "rgba(75, 192, 192, 1)"}
-                                                style={{ cursor: !apiLimitReached && payload.hasArticle ? 'pointer' : 'default' }}
+                                                cx={cx}
+                                                cy={cy}
+                                                r={hasArticle ? 6 : 3}
+                                                fill={isSelected ? "#ff9900" : (hasArticle ? "red" : "rgba(75, 192, 192, 1)")}
+                                                stroke={isSelected ? "#ff9900" : (hasArticle ? "red" : "rgba(75, 192, 192, 1)")}
+                                                style={{ cursor: hasArticle ? 'pointer' : 'default' }}
                                                 onClick={handleClick}
                                             />
                                         );
@@ -262,6 +251,51 @@ export default function Home() {
                             </LineChart>
                         </div>
                     )}
+{/* Articles List Section */}
+                {!apiLimitReached && articles.length > 0 && (
+                    <div className="mt-8">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">Related Articles</h2>
+                        <div className="space-y-4">
+                            {articles.map((article, index) => {
+                                const articleDate = new Date(article.publishedAt);
+                                const dataPoint = getChartDataForDate(article.publishedAt);
+                                const price = dataPoint ? dataPoint.price : 'N/A';
+                                
+                                return (
+                                    <div key={index} className="border-b border-gray-200 pb-4">
+                                        <div className="flex items-start">
+                                            <div className="mr-4">
+                                                <span 
+                                                    onClick={() => handleArticleDateClick(article.publishedAt)}
+                                                    className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                                                >
+                                                    <u>{format(articleDate, 'MMM dd, yyyy')}</u>
+                                                </span>
+                                                {dataPoint && (
+                                                    <p className="text-sm text-gray-600">
+                                                        Price: ${price.toFixed(2)}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <a 
+                                                    href={article.link} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="text-lg font-medium text-gray-900 hover:text-primary"
+                                                >
+                                                    {article.title}
+                                                </a>
+                                                <p className="text-gray-600 mt-1">{article.description}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+                {/*Platypus*/}
                 </div>
             </div>
         </div>
