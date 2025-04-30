@@ -100,8 +100,7 @@ router.get('/', async (req, res) => {
             throw {
               status: error.response.status,
               apiLimit: true,
-              cachedStocks,
-              message: `Hey there! Sadly, we've run out of API tokens for our news articles. Here are the stocks that you can try out our app with: ${cachedStocks.join(', ')}`
+              message: `Hey there! Sadly, we've run out of API tokens for our news articles. You can try again tomorrow, or try out one of these tickers: ${cachedStocks.join(', ')}. \nThanks!`
             };
           }
           return error;

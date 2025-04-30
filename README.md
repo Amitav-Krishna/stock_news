@@ -25,7 +25,7 @@ graph TD
 	C --> E[Yes]
 	D --> F[Send data to frontend to be displayed]
     E --> G[Use yfinance to get data about stock prices]
-    E --> H[Scrape Yahoo News using Puppeteer for news about the stock]
+    E --> H[Use GNews to get articles]
     G --> I[Store data in TimescaleDB]
     H --> I
     I --> F
