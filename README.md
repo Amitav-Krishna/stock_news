@@ -1,20 +1,19 @@
 ## Project definition
-An app or website that shows the timeline of a stock price over long term (5 years+) with major news articles of the stock pinned on the price chart. This way it is easy to see and learn how news affects stock prices past and present. (Recommended by marnus.db@gmail.com)
+An app or website that shows the timeline of a stock price over long term (5 years+) with major news articles of the stock pinned on the price chart. This way it is easy to see and learn how news affects stock prices past and present.
 ## Project stack
 1. **Frontend (UI & Visualization)**
 - Next.js 
-- React-chartjs-2 for rendering charts
+- Recharts
 2. **Data fetching**
 	- Stock prices
 		- Yahoo Finance API (yfinance)
 	- News
-		 - Google Custom Search API
+		 - Gnews.io
 3. **Database**
-	- PostgreSQL + database
+	- PostgreSQL + TimescaleDB
 4. **Miscellaneous**
-	- Luxon for date handling
-	- Axios for API calls 
-	- Puppeteer for news scraping (deprecated)
+	- DateFNS for date handling
+	- Axios for API calls
 ## Project flow
 
 ```mermaid
