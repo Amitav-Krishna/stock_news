@@ -10,7 +10,7 @@ An app or website that shows the timeline of a stock price over long term (5 yea
 	- News
 		 - Google Custom Search API
 3. **Database**
-	- PostgreSQL + TimescaleDB
+	- PostgreSQL + database
 4. **Miscellaneous**
 	- Luxon for date handling
 	- Axios for API calls 
@@ -19,14 +19,14 @@ An app or website that shows the timeline of a stock price over long term (5 yea
 
 ```mermaid
 graph TD
-    A[User chooses stock in the frontend] --> B[Get data from TimescaleDB]
+    A[User chooses stock in the frontend] --> B[Get data from database]
     B --> C[Is data missing?]
     C --> D[No]
 	C --> E[Yes]
 	D --> F[Send data to frontend to be displayed]
     E --> G[Use yfinance to get data about stock prices]
     E --> H[Use GNews to get articles]
-    G --> I[Store data in TimescaleDB]
+    G --> I[Store data in database]
     H --> I
     I --> F
 ```
@@ -37,7 +37,7 @@ graph TD
 - [X] Add stock graphing capabilities
 
 ### Database
-- [X] Add functions to cache stock data and news articles in TimescaleDB
+- [X] Add functions to cache stock data and news articles in database
 - [X] Add functions to check cached stock data and news articles before fetching them again
 
 ### Frontend
