@@ -41,5 +41,5 @@ graph TD
 
 ### Frontend
 - [X] Add communication between the frontend and backend
-- [ ] Add stock graphing capabilities
-- [ ] Add styling
+- [X] Add stock graphing capabilities
+- [X] Add styling

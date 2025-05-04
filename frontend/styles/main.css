@@ -433,3 +433,43 @@ circle[fill="#ff9900"] {
   width: 100% !important;
   max-width: 100%;
 }
+/* GitHub corner ribbon */
+.github-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 100;
+  border-bottom: 0;
+}
+
+.github-corner svg {
+  fill: #151513;
+  color: #fff;
+  width: 80px;
+  height: 80px;
+}
+
+.github-corner:hover .octo-arm {
+  animation: octocat-wave 560ms ease-in-out;
+}
+
+@keyframes octocat-wave {
+  0%, 100% { transform: rotate(0); }
+  20%, 60% { transform: rotate(-25deg); }
+  40%, 80% { transform: rotate(10deg); }
+}
+
+@media (max-width: 768px) {
+  .github-corner svg {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .github-corner:hover .octo-arm {
+    animation: none;
+  }
+  
+  .github-corner .octo-arm {
+    animation: octocat-wave 560ms ease-in-out;
+  }
+}
