@@ -10,7 +10,7 @@ An app or website that shows the timeline of a stock price over long term (5 yea
 	- News
 		 - Gnews.io
 3. **Database**
-	- PostgreSQL + TimescaleDB
+	- PostgreSQL
 4. **Miscellaneous**
 	- DateFNS for date handling
 	- Axios for API calls
