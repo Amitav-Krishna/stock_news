@@ -1,3 +1,4 @@
+// frontend/pages/index.js
 import React, { useState } from 'react';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
@@ -64,66 +65,72 @@ export default function Home() {
     };
 
     const fetchStockData = async () => {
-      try {
+    try {
         // Reset states
         setError(null);
         setApiLimitReached(false);
         setArticles([]);
         setCachedStocks([]);
+        setChartData(null); // Reset chart data to show loading state
 
-        // Fetch stock data
+        // First fetch and display stock data immediately
         const response = await axios.get(`/api/stock/${ticker}`);
         const responseData = response.data;
 
         if (!responseData.data || !Array.isArray(responseData.data)) {
-          console.error('[DEBUG] Invalid data format:', responseData);
-          return;
+        console.error('[DEBUG] Invalid data format:', responseData);
+        return;
         }
 
-        let newsArticles = [];
-        try {
-          const newsResponse = await axios.get('/api/news', {
-            params: { q: ticker }
-          });
-          newsArticles = newsResponse.data || [];
-          setArticles(newsArticles);
-        } catch (newsError) {
-          if (newsError.response?.status === 429) {
-            setApiLimitReached(true);
-            setCachedStocks(newsError.response.data?.cachedStocks || []);
-            setError(newsError.response.data?.message || 'API limit reached');
-          } else {
-            throw newsError;
-          }
-        }
-
-        // Create a Set of dates that have articles for quick lookup
-        const articleDates = new Set(
-          newsArticles.map(article => 
-            new Date(article.publishedAt).toDateString()
-          )
-        );
-
-        // Process and enhance chart data with article information
-        const processedData = responseData.data.map(item => {
-          const itemDate = new Date(item.time).toDateString();
-          
-          return {
-            ...item,
-            price: Number(item.price) || 0,
-            hasArticle: articleDates.has(itemDate) && !apiLimitReached
-          };
-        });
+        // Process and set initial chart data without articles
+        const processedData = responseData.data.map(item => ({
+        ...item,
+        price: Number(item.price) || 0,
+        hasArticle: false // Initially set to false, will update later
+        }));
 
         const sortedData = processedData.sort((a, b) => new Date(a.time) - new Date(b.time));
         setChartData(sortedData);
 
-      } catch (err) {
+        // Then fetch news data in the background
+        try {
+        const newsResponse = await axios.get('/api/news', {
+            params: { q: ticker }
+        });
+        const newsArticles = newsResponse.data || [];
+        setArticles(newsArticles);
+
+        // Update chart data with article information
+        const articleDates = new Set(
+            newsArticles.map(article => 
+            new Date(article.publishedAt).toDateString()
+            )
+        );
+
+        const updatedData = sortedData.map(item => {
+            const itemDate = new Date(item.time).toDateString();
+            return {
+            ...item,
+            hasArticle: articleDates.has(itemDate)
+            };
+        });
+
+        setChartData(updatedData);
+        } catch (newsError) {
+        if (newsError.response?.status === 429) {
+            setApiLimitReached(true);
+            setCachedStocks(newsError.response.data?.cachedStocks || []);
+            setError(newsError.response.data?.message || 'API limit reached');
+        } else {
+            console.error('[DEBUG] News fetch error:', newsError);
+        }
+        }
+
+    } catch (err) {
         console.error('[DEBUG] Error:', err);
         setError(err.response?.data?.message || 'Failed to fetch data');
-      }
+    }
     };
-
     const CustomTooltip = ({ active, payload, label, selectedPoint }) => {
         if ((!active && !selectedPoint) || !payload || !payload.length) return null;
         

@@ -1,3 +1,5 @@
+// backend/server.js
+
 const express = require('express');
 const cors = require('cors');
 const stockRoutes = require('./routes/stock').default || require('./routes/stock');
