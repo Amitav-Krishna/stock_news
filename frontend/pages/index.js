@@ -271,6 +271,7 @@ export default function Home() {
                                             }
                                         };
                                         
+                                        // Render all dots here, but article dots will be larger and red
                                         return (
                                             <circle 
                                                 cx={cx}
@@ -278,7 +279,10 @@ export default function Home() {
                                                 r={hasArticle ? 6 : 3}
                                                 fill={isSelected ? "#ff9900" : (hasArticle ? "red" : "rgba(75, 192, 192, 1)")}
                                                 stroke={isSelected ? "#ff9900" : (hasArticle ? "red" : "rgba(75, 192, 192, 1)")}
-                                                style={{ cursor: hasArticle ? 'pointer' : 'default' }}
+                                                style={{ 
+                                                    cursor: hasArticle ? 'pointer' : 'default',
+                                                    zIndex: hasArticle ? 2 : 1  // Ensure article dots appear above
+                                                }}
                                                 onClick={handleClick}
                                             />
                                         );
@@ -290,7 +294,7 @@ export default function Home() {
                                         stroke: "#ff9900"
                                     }}
                                 />
-                            </LineChart>
+</LineChart>
                         </div>
                     )}
 {/* Articles List Section */}
