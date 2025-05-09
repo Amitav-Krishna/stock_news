@@ -1,31 +1,12 @@
 const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const secData = JSON.parse(fs.readFileSync(path.join(__dirname, 'company_tickers.json')));
 
 function getCompanyName(ticker) {
-    try {
-        console.log(`[DEBUG] Fetching company name for ticker: ${ticker}`);
-        const command = `source /home/amitav/stocks/backend/venv/bin/activate && python3 -c "
-import yfinance as yf
-try:
-    ticker = yf.Ticker('${ticker}')
-    info = ticker.info
-    if 'longName' in info:
-        print(info['longName'])
-    else:
-        print('')
-except Exception as e:
-    print(f'ERROR: {str(e)}')
-"`;
-        const output = execSync(command, { shell: '/bin/bash' }).toString().trim();
-        if (output.startsWith('ERROR:')) {
-            console.error(`[DEBUG] Python error: ${output}`);
-            return null;
-        }
-        console.log(`[DEBUG] Found company name: ${output || 'None'}`);
-        return output || null;
-    } catch (error) {
-        console.error('[DEBUG] System error:', error.message);
-        return null;
-    }
+    const entry = Object.values(secData).find(company => 
+        company.ticker === ticker.toUpperCase()
+    );
+    return entry ? entry.title : null;
 }
-
 module.exports = { getCompanyName };
