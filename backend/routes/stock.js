@@ -23,10 +23,11 @@ pool.on('error', (err) => {
 // Path to Python fetcher script and virtual environment
 const PYTHON_SCRIPT_PATH = path.join(__dirname, '../yfinance_fetcher.py');
 const VENV_PYTHON_PATH = path.join(__dirname, '../venv/bin/python');
-
 async function fetchDataWithPython(ticker) {
   return new Promise((resolve, reject) => {
     const command = `${VENV_PYTHON_PATH} ${PYTHON_SCRIPT_PATH} ${ticker}`;
+    
+    console.log(`Executing command: ${command}`); // Log the exact command
     
     exec(command, { 
       shell: '/bin/bash',
@@ -41,16 +42,17 @@ async function fetchDataWithPython(ticker) {
       }
     }, (error, stdout, stderr) => {
       if (error) {
-        console.error(`Python script error for ${ticker}:`, stderr);
+        console.error(`Python script error for ${ticker}:`);
+        console.error('Stdout:', stdout);
+        console.error('Stderr:', stderr);
         console.error('Full error object:', error);
-        return reject(new Error(`Failed to fetch data for ${ticker}: ${stderr || error.message}`));
+        return reject(new Error(`Failed to fetch data for ${ticker}: ${stdout || stderr || error.message}`));
       }
       console.log(`Python script output for ${ticker}:`, stdout);
       resolve(true);
     });
   });
 }
-
 async function getHistoricalStockData(ticker) {
   const query = 'SELECT time, price, volume FROM stock_data WHERE ticker = $1 ORDER BY time DESC';
   try {

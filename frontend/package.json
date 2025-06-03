@@ -1,35 +1,34 @@
 {
-  "name": "stock-timeline",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev -p 3200",
-    "build": "next build",
-    "start": "next start -p 3200",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "axios": "^1.8.4",
-    "chartjs-adapter-luxon": "^1.3.1",
-    "date-fns": "^4.1.0",
-    "dotenv": "^16.5.0",
-    "luxon": "^3.6.1",
-    "next": "15.3.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "recharts": "^2.15.3"
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/luxon": "^3.6.2",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.3.1",
-    "tailwindcss": "^4",
-    "typescript": "^5"
-  },
-  "proxy": "http://localhost:3300"
+    "name": "stock-timeline",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev -p 3200",
+        "build": "next build",
+        "start": "next start -p 3200",
+        "lint": "next lint"
+    },
+    "dependencies": {
+        "axios": "^1.8.4",
+        "chartjs-adapter-luxon": "^1.3.1",
+        "date-fns": "^4.1.0",
+        "dotenv": "^16.5.0",
+        "luxon": "^3.6.1",
+        "next": "15.3.1",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "recharts": "^2.15.3"
+    },
+    "devDependencies": {
+        "@eslint/eslintrc": "^3",
+        "@tailwindcss/postcss": "^4",
+        "@types/luxon": "^3.6.2",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "eslint": "^9",
+        "eslint-config-next": "15.3.1",
+        "tailwindcss": "^4",
+        "typescript": "^5"
+    }
 }

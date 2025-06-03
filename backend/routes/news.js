@@ -1,214 +1,221 @@
 // backend/routes/news.js
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
+const express = require("express");
+const cors = require("cors");
+const axios = require("axios");
 const router = express.Router();
-const db = require('../utils/db');
-const { getCompanyName } = require('../utils/stockInfo');
+const db = require("../utils/db");
+const { getCompanyName } = require("../utils/stockInfo");
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Constants
+const API_DELAY_MS = 1000;
+const MIN_CACHED_ARTICLES = 5;
+const MAX_API_ARTICLES_PER_REQUEST = 3;
+const API_YEAR_RANGE = 1; // Only fetch 1 year back to avoid rate limits
+const QUARTERS_PER_YEAR = 4;
 
-router.use(cors()); // Allow all origins for now
+// Helper functions
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Add function to get available cached stocks
-const getCachedStocks = async (db) => {
-  try {
-    const result = await db.query(
-      `SELECT DISTINCT ticker 
-       FROM news_articles 
-       GROUP BY ticker 
-       HAVING COUNT(*) > 5
-       ORDER BY ticker`
-    );
-    return result.rows.map(row => row.ticker);
-  } catch (error) {
-    console.error('[DEBUG] Error getting cached stocks:', error);
-    return [];
-  }
+const getCachedStocks = async () => {
+    try {
+        const result = await db.query(
+            `SELECT DISTINCT ticker
+       FROM news_articles
+       GROUP BY ticker
+       HAVING COUNT(*) >= $1
+       ORDER BY ticker`,
+            [MIN_CACHED_ARTICLES],
+        );
+        return result.rows.map((row) => row.ticker);
+    } catch (error) {
+        console.error("Error getting cached stocks:", error);
+        return [];
+    }
 };
 
-router.get('/', async (req, res) => {
-  const ticker = (req.query.q || '').toUpperCase();
+const cleanCompanyName = (name) => {
+    if (!name) return "";
+    return name
+        .replace(/,?\s+(Incorporated|Inc|Ltd|LLC|Corp|Company)\.?$/i, "")
+        .trim();
+};
 
-  if (!ticker) {
-    console.error('Ticker is missing or invalid');
-    return res.status(400).json({ error: 'Ticker is required' });
-  }
+const generateTimeRanges = () => {
+    const ranges = [];
+    const now = new Date();
 
-  const baseUrl = 'https://gnews.io/api/v4/search';
+    for (let yearOffset = 0; yearOffset < API_YEAR_RANGE; yearOffset++) {
+        const year = now.getFullYear() - yearOffset;
 
-  try {
-    // Check database for existing articles
-    console.log(`[DEBUG] Searching for ticker: ${ticker}`);
-    let dbArticles = await db.query(
-      `SELECT title, link, snippet, time as "publishedAt"
-       FROM news_articles 
-       WHERE ticker = $1 
-       ORDER BY time DESC`,
-      [ticker]
-    );
-    console.log(`[DEBUG] Found ${dbArticles.rows.length} articles in database`);
+        for (let quarter = 0; quarter < QUARTERS_PER_YEAR; quarter++) {
+            const startMonth = quarter * 3;
+            const endMonth = startMonth + 2;
 
-    // If no articles in DB, fetch from API
-    if (dbArticles.rows.length === 0) {
-      try {
-        console.log('[DEBUG] No cached articles found, fetching from GNews API...');
-        
-        const companyName = getCompanyName(ticker);
-        if (!companyName) {
-          console.error('[DEBUG] No company name found for ticker:', ticker);
-          return res.status(400).json({
-            error: 'COMPANY_NOT_FOUND',
-            message: `Could not find company name for ticker ${ticker}`
-          });
-        }
+            const fromDate = new Date(year, startMonth, 1);
+            const toDate = new Date(year, endMonth + 1, 0);
 
-        let allArticles = [];
-
-        // Clean up company name and use it as the only search term
-        const searchQuery = companyName
-          .replace(/,?\s+Incorporated\.?$/, '')  // Remove "Incorporated" suffix
-          .replace(/,?\s+Inc\.?$/, '')          // Remove "Inc." suffix
-          .replace(/,?\s+Ltd\.?$/, '')          // Remove "Ltd." suffix
-          .replace(/,?\s+LLC\.?$/, '')          // Remove "LLC" suffix
-          .trim();
-        
-        console.log(`[DEBUG] Searching for company: "${searchQuery}"`);
-
-        // Create time ranges for 4-month intervals across 5 years
-        const currentYear = new Date().getFullYear();
-        const timeRanges = [];
-        for (let year = 0; year < 5; year++) {
-          const targetYear = currentYear - year;
-          [
-            { start: '01-01', end: '04-30' },
-            { start: '05-01', end: '08-31' },
-            { start: '09-01', end: '12-31' }
-          ].forEach(({ start, end }) => {
-            timeRanges.push({
-              year: targetYear,
-              from: `${targetYear}-${start}T00:00:00Z`,
-              to: `${targetYear}-${end}T23:59:59Z`
+            ranges.push({
+                from: fromDate.toISOString(),
+                to: toDate.toISOString(),
             });
-          });
         }
-
-        // Helper function to check API errors
-        const handleApiError = async (error) => {
-          if (error.response?.status === 429 || error.response?.status === 403 || error.response?.status === 400) {
-            const cachedStocks = await getCachedStocks(db);
-            throw {
-              status: error.response.status,
-              apiLimit: true,
-              message: `Hey there! Sadly, we've run out of API tokens for our news articles. You can try again tomorrow, or try out one of these tickers: ${cachedStocks.join(', ')}. \nThanks!`
-            };
-          }
-          return error;
-        };
-
-        for (const range of timeRanges) {
-          try {
-            const response = await axios.get(
-              `${baseUrl}?q=${encodeURIComponent(searchQuery)}&lang=en&country=us&max=3&from=${range.from}&to=${range.to}&apikey=${process.env.GNEWS_API_KEY}&sortby=relevance`
-            );
-            
-            console.log('[DEBUG] GNews API Response:', {
-              articles: response.data?.articles?.length || 0,
-              sample: response.data?.articles?.[0]
-            });
-            
-            if (!response.data?.articles) {
-              console.error('[DEBUG] Invalid API response structure:', response.data);
-              continue;
-            }
-            
-            allArticles = [...allArticles, ...response.data.articles];
-            await delay(1000);
-          } catch (error) {
-            await handleApiError(error); // This will throw immediately if it's an API limit error
-            console.error(`[DEBUG] Query failed for ${range.year}:`, {
-              status: error.response?.status,
-              message: error.message
-            });
-          }
-        }
-
-        console.log('[DEBUG] Articles per year:', 
-          allArticles.reduce((acc, article) => {
-            const year = new Date(article.publishedAt).getFullYear();
-            acc[year] = (acc[year] || 0) + 1;
-            return acc;
-          }, {})
-        );
-
-        const newArticles = allArticles
-          .map(article => {
-            console.log('[DEBUG] Processing article:', {
-              title: article.title,
-              url: article.url,
-              link: article.link
-            });
-            return {
-              title: article.title,
-              link: article.link || article.url, // GNews API sometimes uses 'link' instead of 'url'
-              snippet: article.description,
-              publishedAt: article.publishedAt
-            };
-          })
-          .filter((article, index, self) => 
-            index === self.findIndex(a => a.title === article.title)
-          );
-
-        console.log(`[DEBUG] Fetched ${newArticles.length} articles from API`);
-
-        // Insert new articles into DB
-        for (const article of newArticles) {
-          try {
-            await db.query(
-              `INSERT INTO news_articles (ticker, title, link, snippet, time)
-               VALUES ($1, $2, $3, $4, $5)
-               ON CONFLICT ON CONSTRAINT news_articles_ticker_title_time_key DO UPDATE 
-               SET link = EXCLUDED.link, snippet = EXCLUDED.snippet`,
-              [ticker, article.title, article.link, article.snippet, new Date(article.publishedAt)]
-            );
-          } catch (dbError) {
-            console.error('[DEBUG] Error inserting article:', dbError.message);
-          }
-        }
-
-        // Get updated articles from DB
-        dbArticles = await db.query(
-          `SELECT title, link, snippet, time as "publishedAt"
-           FROM news_articles 
-           WHERE ticker = $1 
-           ORDER BY time DESC`,
-          [ticker]
-        );
-      } catch (error) {
-        if (error.apiLimit) {
-          return res.status(429).json({
-            error: 'API_LIMIT',
-            message: error.message,
-            cachedStocks: error.cachedStocks
-          });
-        }
-        throw error;
-      }
     }
 
-    res.json(dbArticles.rows);
-  } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch news',
-      details: error.message 
-    });
-  }
+    return ranges;
+};
+
+const handleApiError = async (error) => {
+    if (error.response?.data?.message?.includes("limit")) {
+        const cachedStocks = await getCachedStocks();
+        throw {
+            status: 429,
+            apiLimit: true,
+            message: `API limit reached. Try these cached tickers: ${cachedStocks.join(", ")}`,
+        };
+    }
+    console.warn("API Error:", error.response?.data || error.message);
+    throw error;
+};
+
+const processArticles = (articles) => {
+    return articles
+        .map((article) => ({
+            title: article.title,
+            link: article.link || article.url,
+            snippet: article.description || article.content,
+            publishedAt: article.publishedAt,
+        }))
+        .filter(
+            (article, index, self) =>
+                index ===
+                self.findIndex(
+                    (a) => a.title === article.title && a.link === article.link,
+                ),
+        );
+};
+
+// Routes
+router.use(cors());
+
+router.get("/", async (req, res) => {
+    const ticker = (req.query.q || "").toUpperCase().trim();
+
+    if (!ticker) {
+        return res.status(400).json({
+            error: "Invalid request",
+            message: "Ticker parameter (q) is required",
+        });
+    }
+
+    try {
+        // Check database first
+        let dbArticles = await db.query(
+            `SELECT title, link, snippet, time as "publishedAt"
+       FROM news_articles
+       WHERE ticker = $1
+       ORDER BY time DESC
+       LIMIT 50`,
+            [ticker],
+        );
+
+        if (dbArticles.rows.length >= MIN_CACHED_ARTICLES) {
+            return res.json(dbArticles.rows);
+        }
+
+        // Fetch from API if not enough cached articles
+        const companyName = getCompanyName(ticker);
+        if (!companyName) {
+            return res.status(404).json({
+                error: "Company not found",
+                message: `No company found for ticker: ${ticker}`,
+            });
+        }
+
+        const searchQuery = cleanCompanyName(companyName);
+        const timeRanges = generateTimeRanges();
+        let allArticles = [];
+
+        for (const range of timeRanges) {
+            try {
+                const response = await axios.get(
+                    "https://gnews.io/api/v4/search",
+                    {
+                        params: {
+                            q: searchQuery,
+                            lang: "en",
+                            country: "us",
+                            max: MAX_API_ARTICLES_PER_REQUEST,
+                            from: range.from,
+                            to: range.to,
+                            apikey: process.env.GNEWS_API_KEY,
+                            sortby: "publishedAt",
+                        },
+                        timeout: 3000,
+                    },
+                );
+
+                if (response.data?.articles?.length) {
+                    allArticles = [...allArticles, ...response.data.articles];
+                    await delay(API_DELAY_MS);
+                }
+            } catch (error) {
+                await handleApiError(error);
+            }
+        }
+
+        const processedArticles = processArticles(allArticles);
+
+        // Cache new articles
+        if (processedArticles.length > 0) {
+            try {
+                await db.query(
+                    `INSERT INTO news_articles (ticker, title, link, snippet, time)
+           VALUES ${processedArticles
+               .map(
+                   (_, i) =>
+                       `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`,
+               )
+               .join(", ")}
+           ON CONFLICT (ticker, title, time) DO NOTHING`,
+                    processedArticles.flatMap((article) => [
+                        ticker,
+                        article.title,
+                        article.link,
+                        article.snippet,
+                        new Date(article.publishedAt),
+                    ]),
+                );
+            } catch (dbError) {
+                console.error("Database insert error:", dbError);
+            }
+        }
+
+        // Get updated results
+        dbArticles = await db.query(
+            `SELECT title, link, snippet, time as "publishedAt"
+       FROM news_articles
+       WHERE ticker = $1
+       ORDER BY time DESC
+       LIMIT 50`,
+            [ticker],
+        );
+
+        return res.json(dbArticles.rows);
+    } catch (error) {
+        console.error("News fetch error:", error);
+
+        if (error.apiLimit) {
+            return res.status(429).json({
+                error: "API limit reached",
+                message: error.message,
+            });
+        }
+
+        return res.status(500).json({
+            error: "Server error",
+            message: error.message || "Failed to fetch news articles",
+        });
+    }
 });
 
 module.exports = router;
-
-
-
-
-
